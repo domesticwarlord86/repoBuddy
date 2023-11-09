@@ -34,6 +34,21 @@
 		"https://llamamarket.llamaserver.com/LlamaMarket.zip",
 		"Paid botbase to to list items and update prices on the MB."
 	],
+	"LlamaRP - Advertise": [
+		"BotBases\\LlamaRP",
+		"https://llamarp.llamaserver.com/LlamaRP.zip",
+		"Paid botbase that will advertise your venue for you."
+	],	
+	"LlamaCheats": [
+		"Plugins\\LlamaCheats",
+		"https://llamacheats.llamaserver.com/LlamaCheats.zip",
+		"Paid plugin with various cheat options."
+	],	
+	"CompanyWorkshop": [
+		"BotBases\\CompanyWorkshop",
+		"https://companyworkshop.llamaserver.com/CompanyWorkshop.zip",
+		"Paid botbase that sends/crafts Airship/Subs."
+	],
 	"Platypus": [
 		"BotBases\\Platypus",
 		"https://rbplatypus.com/downloads/latest",
