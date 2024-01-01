@@ -1,11 +1,6 @@
 <?xml version="1.0" standalone="yes"?>
 <ReposTable>
   <Repo>
-    <Name>repoBuddy</Name>
-    <Type>Plugin</Type>
-    <URL>https://github.com/Zimgineering/repoBuddy.git</URL>
-  </Repo>
-  <Repo>
     <Name>Sodimm</Name>
     <Type>Profile</Type>
     <URL>https://github.com/sodimm/RebornBuddy.git</URL>
