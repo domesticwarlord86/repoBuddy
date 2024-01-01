@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Configuration;
 using System.Data;
 using System.Diagnostics;
 using System.IO;
@@ -170,12 +172,11 @@ public class repoBuddy : BotPlugin
     static repoBuddy()
     {
         AppDomain.CurrentDomain.AppendPrivatePath(Constants.RepoBuddyDirectory);
-       /// AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomain_AssemblyResolve);
-      //  AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomainLibgit2sharp_AssemblyResolve);
-      //  AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomaingit2a2bde63_AssemblyResolve);
-
+        /// AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomain_AssemblyResolve);
+        //  AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomainLibgit2sharp_AssemblyResolve);
+        //  AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomaingit2a2bde63_AssemblyResolve);
     }
-    
+
     [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
     [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
     public static extern bool DeleteFile(string name);
@@ -281,6 +282,7 @@ public class repoBuddy : BotPlugin
                     // Create clean directory
                     Directory.CreateDirectory($"{repoPath}");
                 }
+
                 if (Directory.Exists($@"{repoPath}\.git"))
                 {
                     using (var repo = new Repository($@"{repoPath}\.git"))
@@ -288,16 +290,13 @@ public class repoBuddy : BotPlugin
                         // Credential information to fetch
                         LibGit2Sharp.PullOptions options = new LibGit2Sharp.PullOptions();
                         options.FetchOptions = new FetchOptions();
-                        /*
                         options.FetchOptions.CredentialsProvider = new CredentialsHandler(
                             (url, usernameFromUrl, types) =>
                                 new UsernamePasswordCredentials()
                                 {
-                                    Username = "DomesticWalord86",
-                                    Password = "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"
+                                    Username = $"{Settings.Instance.UserName}",
+                                    Password = $"{Settings.Instance.GithubPat}"
                                 });
-                        */
-                        // User information to create a merge commit
                         var signature = new LibGit2Sharp.Signature(
                             new Identity("repoBuddy", "MERGE_USER_EMAIL"), DateTimeOffset.Now);
 
@@ -307,8 +306,17 @@ public class repoBuddy : BotPlugin
                 }
                 else
                 {
+                    // Credential information to fetch
+                    LibGit2Sharp.CloneOptions options = new LibGit2Sharp.CloneOptions();
+                    options.FetchOptions.CredentialsProvider = new CredentialsHandler(
+                        (url, usernameFromUrl, types) =>
+                            new UsernamePasswordCredentials()
+                            {
+                                Username = $"{Settings.Instance.UserName}",
+                                Password = $"{Settings.Instance.GithubPat}"
+                            });
                     Logging.WriteDiagnostic($"Attempting to clone {repoName} from {repoUrl} to {repoPath}");
-                    Repository.Clone(repoUrl, repoPath);
+                    Repository.Clone(repoUrl, repoPath, options);
                     totalLap = stopwatch.ElapsedMilliseconds - currentLap;
                     WriteLog(repoLog, $"[{Name}-v{Version}] {repoName} checkout complete in {totalLap} ms.");
                     if (repoType != "Profiles")
@@ -415,7 +423,7 @@ public class repoBuddy : BotPlugin
     }
 
     #endregion
-    
+
     public void DeleteDirectory(string targetDir)
     {
         File.SetAttributes(targetDir, FileAttributes.Normal);
@@ -435,5 +443,59 @@ public class repoBuddy : BotPlugin
         }
 
         Directory.Delete(targetDir, false);
+    }
+
+    public class Settings : JsonSettings
+    {
+        private static Settings _instance;
+
+        public static Settings Instance
+        {
+            get
+            {
+                return _instance ?? (_instance = new Settings());
+                ;
+            }
+        }
+
+        public Settings() : base(Path.Combine(CharacterSettingsDirectory, "repoBuddy.json"))
+        {
+        }
+
+        [Setting] public uint Id { get; set; }
+
+        private string _userName;
+
+        [DefaultValue(null)]
+        public string UserName
+        {
+            get => _userName;
+            set
+            {
+                if (value == _userName)
+                {
+                    return;
+                }
+
+                _userName = value;
+            }
+        }
+
+        private string _githubPat;
+
+        [DefaultValue(null)]
+        public string GithubPat
+        {
+            get => _githubPat;
+            set
+            {
+                if (value == _githubPat)
+                {
+                    return;
+                }
+
+                _githubPat = value;
+            }
+        }
     }
 }

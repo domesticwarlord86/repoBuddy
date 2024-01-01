@@ -16,6 +16,8 @@ public class SettingsForm : Form
     private FlowLayoutPanel buttonPanel = new FlowLayoutPanel();
     private DataGridView repoDataGridView = new DataGridView();
     private TextBox nameBox = new TextBox();
+    private TextBox userNameBox = new TextBox();
+    private TextBox githubPatBox = new TextBox();
     private ComboBox typeBox = new ComboBox();
     private TextBox urlBox = new TextBox();
     private Button addNewRowButton = new Button();
@@ -44,6 +46,24 @@ public class SettingsForm : Form
         nameBox.KeyPress += new KeyPressEventHandler(textBox_KeyPress);
         nameBox.GotFocus += new EventHandler(NameBox_GotFocus);
         nameBox.LostFocus += new EventHandler(NameBox_LostFocus);
+
+        userNameBox.Text = repoBuddy.Settings.Instance.UserName;
+        if (repoBuddy.Settings.Instance.UserName == null)
+        {
+            userNameBox.Text = "Github Username";
+        }
+        userNameBox.KeyPress += new KeyPressEventHandler(textBox_KeyPress);
+        userNameBox.GotFocus += new EventHandler(UserNameBox_GotFocus);
+        userNameBox.LostFocus += new EventHandler(UserNameBox_LostFocus);
+        
+        githubPatBox.Text = repoBuddy.Settings.Instance.GithubPat;
+        if (repoBuddy.Settings.Instance.GithubPat == null)
+        {
+            githubPatBox.Text = "Github PAT";
+        }
+        githubPatBox.KeyPress += new KeyPressEventHandler(textBox_KeyPress);
+        githubPatBox.GotFocus += new EventHandler(GithubPatBox_GotFocus);
+        githubPatBox.LostFocus += new EventHandler(GithubPatBox_LostFocus);
 
         typeBox.Items.AddRange(new string[] { "BotBase", "Plugin", "Profile", "Routine", "Quest Behavior" });
         typeBox.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -108,6 +128,8 @@ public class SettingsForm : Form
         controlPanel.Controls.Add(urlBox);
         controlPanel.Controls.Add(addNewRowButton);
         controlPanel.Controls.Add(deleteRowButton);
+        controlPanel.Controls.Add(userNameBox);
+        controlPanel.Controls.Add(githubPatBox);
         controlPanel.AutoSize = true;
         controlPanel.Dock = DockStyle.Bottom;
 
@@ -213,6 +235,50 @@ public class SettingsForm : Form
         if (string.IsNullOrWhiteSpace(nameBox.Text))
         {
             nameBox.Text = "Repo Name";
+        }
+    }
+    
+    private void UserNameBox_GotFocus(object sender, EventArgs e)
+    {
+        if (userNameBox.Text == "Github Username")
+        {
+            userNameBox.Text = "";
+        }
+    }
+    
+    private void UserNameBox_LostFocus(object sender, EventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(userNameBox.Text))
+        {
+            userNameBox.Text = "Github Username";
+        }
+        else
+        {
+            var userName = userNameBox.Text.Trim();
+            repoBuddy.Settings.Instance.UserName = userName;
+            repoBuddy.Settings.Instance.Save();
+        }
+    }
+    
+    private void GithubPatBox_GotFocus(object sender, EventArgs e)
+    {
+        if (githubPatBox.Text == "Github PAT")
+        {
+            githubPatBox.Text = "";
+        }
+    }
+    
+    private void GithubPatBox_LostFocus(object sender, EventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(githubPatBox.Text))
+        {
+            githubPatBox.Text = "Github PAT";
+        }
+        else
+        {
+            var githubPat = githubPatBox.Text.Trim();
+            repoBuddy.Settings.Instance.GithubPat = githubPat;
+            repoBuddy.Settings.Instance.Save();
         }
     }
 
