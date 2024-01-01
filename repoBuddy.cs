@@ -1,4 +1,6 @@
 //!CompilerOption:AddRef:SharpSvn.dll
+//!CompilerOption:AddRef:LibGit2Sharp.dll
+
 
 using System;
 using System.Collections.Generic;
@@ -16,8 +18,10 @@ using ff14bot.AClasses;
 using ff14bot.Helpers;
 using ff14bot.Managers;
 using ICSharpCode.SharpZipLib.Zip;
+using LibGit2Sharp;
+using LibGit2Sharp.Handlers;
 using Newtonsoft.Json;
-using SharpSvn;
+using Version = System.Version;
 
 
 namespace repoBuddy;
@@ -96,7 +100,8 @@ public class repoBuddy : BotPlugin
         }
         catch (Exception e)
         {
-            Logging.Write(LogColor, $"[{Name}-v{Version}] Cleaning up migrated LlamaLibrary misc. failed, delete LisbethVentures and FCBuffPlugin manually. {e}");
+            Logging.Write(LogColor,
+                $"[{Name}-v{Version}] Cleaning up migrated LlamaLibrary misc. failed, delete LisbethVentures and FCBuffPlugin manually. {e}");
         }
 
         try
@@ -108,11 +113,16 @@ public class repoBuddy : BotPlugin
                     if (repoDataSet.Tables["Repo"].Rows[i]["Name"].ToString() == "LlamaLibrary")
                     {
                         repoDataSet.Tables["Repo"].Rows.RemoveAt(i);
-                        repoDataSet.Tables["Repo"].Rows.Add("__LlamaLibrary", "Quest Behavior", "https://github.com/nt153133/__LlamaLibrary.git/trunk");
-                        repoDataSet.Tables["Repo"].Rows.Add("LlamaUtilities", "Botbase", "https://github.com/nt153133/LlamaUtilities.git/trunk");
-                        repoDataSet.Tables["Repo"].Rows.Add("ExtraBotbases", "Botbase", "https://github.com/nt153133/ExtraBotbases.git/trunk");
-                        repoDataSet.Tables["Repo"].Rows.Add("ResplendentTools", "Botbase", "https://github.com/Sykel/ResplendentTools.git/trunk");
-                        repoDataSet.Tables["Repo"].Rows.Add("LlamaPlugins", "Plugin", "https://github.com/nt153133/LlamaPlugins.git/trunk");
+                        repoDataSet.Tables["Repo"].Rows.Add("__LlamaLibrary", "Quest Behavior",
+                            "https://github.com/nt153133/__LlamaLibrary.git/trunk");
+                        repoDataSet.Tables["Repo"].Rows.Add("LlamaUtilities", "Botbase",
+                            "https://github.com/nt153133/LlamaUtilities.git/trunk");
+                        repoDataSet.Tables["Repo"].Rows.Add("ExtraBotbases", "Botbase",
+                            "https://github.com/nt153133/ExtraBotbases.git/trunk");
+                        repoDataSet.Tables["Repo"].Rows.Add("ResplendentTools", "Botbase",
+                            "https://github.com/Sykel/ResplendentTools.git/trunk");
+                        repoDataSet.Tables["Repo"].Rows.Add("LlamaPlugins", "Plugin",
+                            "https://github.com/nt153133/LlamaPlugins.git/trunk");
                     }
                 }
 
@@ -124,7 +134,8 @@ public class repoBuddy : BotPlugin
         }
         catch (Exception e)
         {
-            Logging.Write(LogColor, $"[{Name}-v{Version}] Archiving LlamaLibrary failed, please backup and delete manually. {e}");
+            Logging.Write(LogColor,
+                $"[{Name}-v{Version}] Archiving LlamaLibrary failed, please backup and delete manually. {e}");
         }
     }
 
@@ -151,38 +162,20 @@ public class repoBuddy : BotPlugin
         using (StreamReader file = File.OpenText(Constants.DdlsJsonPath))
         {
             JsonSerializer serializer = new JsonSerializer();
-            ddlDict = (Dictionary<string, List<string>>)serializer.Deserialize(file, typeof(Dictionary<string, List<string>>));
+            ddlDict = (Dictionary<string, List<string>>)serializer.Deserialize(file,
+                typeof(Dictionary<string, List<string>>));
         }
     }
 
     static repoBuddy()
     {
-        AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomain_AssemblyResolve);
+        AppDomain.CurrentDomain.AppendPrivatePath(Constants.RepoBuddyDirectory);
+       /// AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomain_AssemblyResolve);
+      //  AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomainLibgit2sharp_AssemblyResolve);
+      //  AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomaingit2a2bde63_AssemblyResolve);
+
     }
-
-    private static Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args) //force load sharpsvn
-    {
-        string path = Constants.SharpSvnDllPath;
-
-        try
-        {
-            Unblock(path);
-        }
-        catch (Exception)
-        {
-            // pass
-        }
-
-        AssemblyName asmName = new AssemblyName(args.Name);
-
-        if (asmName.Name != "SharpSvn")
-        {
-            return null;
-        }
-
-        return Assembly.LoadFrom(path);
-    }
-
+    
     [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
     [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
     public static extern bool DeleteFile(string name);
@@ -265,11 +258,6 @@ public class repoBuddy : BotPlugin
 
     public void repoStart()
     {
-        SvnRevertArgs revertArgs = new SvnRevertArgs()
-        {
-            Depth = SvnDepth.Infinity
-        };
-
         Stopwatch stopwatch = Stopwatch.StartNew();
 
         Parallel.ForEach(repoDataSet.Tables["Repo"].Rows.Cast<DataRow>(), row =>
@@ -286,77 +274,51 @@ public class repoBuddy : BotPlugin
 
             try
             {
-                using (SvnClient client = new SvnClient())
+                if (Directory.Exists($@"{repoPath}\.svn"))
                 {
-                    if (Directory.Exists($@"{repoPath}\.svn"))
+                    // Delete directory so we can download a git version
+                    Directory.Delete($@"{repoPath}", true);
+                    // Create clean directory
+                    Directory.CreateDirectory($@"{repoPath}");
+                }
+                if (Directory.Exists($@"{repoPath}\.git"))
+                {
+                    using (var repo = new Repository($@"{repoPath}\.git"))
                     {
-                        Collection<SvnLogEventArgs> logitems;
+                        // Credential information to fetch
+                        LibGit2Sharp.PullOptions options = new LibGit2Sharp.PullOptions();
+                        options.FetchOptions = new FetchOptions();
+                        /*
+                        options.FetchOptions.CredentialsProvider = new CredentialsHandler(
+                            (url, usernameFromUrl, types) =>
+                                new UsernamePasswordCredentials()
+                                {
+                                    Username = "DomesticWalord86",
+                                    Password = "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"
+                                });
+                        */
+                        // User information to create a merge commit
+                        var signature = new LibGit2Sharp.Signature(
+                            new Identity("repoBuddy", "MERGE_USER_EMAIL"), DateTimeOffset.Now);
 
-                        SvnInfoEventArgs remoteRev;
-                        client.GetInfo(repoUrl, out remoteRev);
-
-                        SvnInfoEventArgs localRev;
-                        client.GetInfo(repoPath, out localRev);
-
-                        SvnLogArgs logArgs = new SvnLogArgs()
-                        {
-                            Start = localRev.Revision + 1,
-                            End = remoteRev.Revision
-                        };
-
-                        if (localRev.Revision < remoteRev.Revision)
-                        {
-                            client.Revert(repoPath, revertArgs);
-                            client.Update(repoPath);
-                            totalLap = stopwatch.ElapsedMilliseconds - currentLap;
-
-                            client.GetLog(repoPath, logArgs, out logitems);
-
-                            foreach (var logentry in logitems)
-                            {
-                                string logString = logentry.LogMessage.Replace(Environment.NewLine, " ");
-                                WriteLog(repoLog, $@"[{Name}-v{Version}] {repoName} r{logentry.Revision}: {logString}");
-                            }
-
-                            WriteLog(repoLog, $"[{Name}-v{Version}] updated [{repoType}] {repoName} from {localRev.Revision} to {remoteRev.Revision} in {totalLap} ms.");
-                            if (repoType != "Profiles")
-                            {
-                                restartNeeded = true;
-                            }
-                        }
+                        // Pull
+                        Commands.Pull(repo, signature, options);
                     }
-                    else
+                }
+                else
+                {
+                    Repository.Clone(repoUrl, repoPath);
+                    totalLap = stopwatch.ElapsedMilliseconds - currentLap;
+                    WriteLog(repoLog, $"[{Name}-v{Version}] {repoName} checkout complete in {totalLap} ms.");
+                    if (repoType != "Profiles")
                     {
-                        client.CheckOut(new Uri(repoUrl), repoPath);
-                        totalLap = stopwatch.ElapsedMilliseconds - currentLap;
-                        WriteLog(repoLog, $"[{Name}-v{Version}] {repoName} checkout complete in {totalLap} ms.");
-                        if (repoType != "Profiles")
-                        {
-                            restartNeeded = true;
-                        }
+                        restartNeeded = true;
                     }
                 }
             }
-            catch (SvnAuthenticationException e)
-            {
-                WriteLog(repoLog, $"[{Name}-v{Version}] {repoName} No more credentials or we tried too many times. {e}");
-            }
-            catch (AccessViolationException e)
-            {
-                WriteLog(repoLog, $"[{Name}-v{Version}] {repoName} Access Violation, something is locking the folder. {e}");
-            }
-            catch (SvnFileSystemException e)
-            {
-                WriteLog(repoLog, $"[{Name}-v{Version}] {repoName} FileSystemException, repo has probably been moved/deleted. {e}");
-            }
-            catch (SvnException e)
-            {
-                WriteLog(repoLog, $"[{Name}-v{Version}] {repoName} Generic SvnException, do you have tortoiseSVN monitoring this folder? CN users may need a VPN to access GitHub. {e}");
 
-                WriteLog(repoLog, $"[{Name}-v{Version}] **************************");
-                WriteLog(repoLog, $"[{Name}-v{Version}] This will prevent further updates, delete the {repoName} .svn folder and make sure tortoiseSVN doesn't manage anything repoBuddy does.");
-                WriteLog(repoLog, $"[{Name}-v{Version}] **************************");
-                restartNeeded = false;
+            finally
+            {
             }
         });
         stopwatch.Stop();
