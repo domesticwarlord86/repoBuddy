@@ -176,7 +176,7 @@ public class repoBuddy : BotPlugin
         //  AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomainLibgit2sharp_AssemblyResolve);
         //  AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomaingit2a2bde63_AssemblyResolve);
     }
-    
+
     private static Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args) //force load sharpsvn
     {
         string path = Constants.LibGit2SharpDllPath;
@@ -310,16 +310,60 @@ public class repoBuddy : BotPlugin
 
                 if (Directory.Exists($@"{repoPath}\.git"))
                 {
+                    #region Credentials
+
+                    // Credential information to Pull
+                    LibGit2Sharp.PullOptions options = new LibGit2Sharp.PullOptions();
+                    options.FetchOptions = new FetchOptions();
+                    options.FetchOptions.CredentialsProvider = new CredentialsHandler(
+                        (url, usernameFromUrl, types) =>
+                            new UsernamePasswordCredentials()
+                            {
+                                Username = $"{Settings.Instance.UserName}",
+                                Password = $"{Settings.Instance.GithubPat}"
+                            });
+                    var signature = new LibGit2Sharp.Signature(
+                        new Identity("repoBuddy", "MERGE_USER_EMAIL"), DateTimeOffset.Now);
+                    
+                    // Credential information to Fetch
+                    FetchOptions fetchOptions = new FetchOptions();
+                    fetchOptions.CredentialsProvider = new CredentialsHandler((url, usernameFromUrl, types) =>
+                        new UsernamePasswordCredentials()
+                        {
+                            Username = $"{Settings.Instance.UserName}",
+                            Password = $"{Settings.Instance.GithubPat}"
+                        });
+
+                    #endregion
+                    
                     using (var repo = new Repository($@"{repoPath}\.git"))
                     {
                         repo.RetrieveStatus();
-                        Logging.Write(LogColor, $"[{Name}-v{Version}] {repoName} Current: {repo.Commits.Count().ToString()} BehindBy {repo.Head.TrackingDetails.BehindBy}");
-                        if (repo.Head.TrackedBranch.TrackingDetails.BehindBy > 0)
+                        
+                        // Fetch remote information to see if update is needed
+                        string logMessage = "";
+                        foreach (Remote remote in repo.Network.Remotes)
                         {
-                            var trackingBranch = repo.Head.TrackedBranch;
+                            IEnumerable<string> refSpecs = remote.FetchRefSpecs.Select(x => x.Specification);
+                            Commands.Fetch(repo, remote.Name, refSpecs, fetchOptions, logMessage);
+                        }
+
+                        Logging.Write(LogColor,
+                            $"[{Name}-v{Version}] {repoName} LocalCurrent: {repo.Commits.Count().ToString()} BehindBy {repo.Head.TrackingDetails.BehindBy}");
+                        
+                        // If our local branch is behind the origin, run an update.
+                        if (repo.Head.TrackingDetails.BehindBy > 0)
+                        {
+                            Logging.Write(LogColor,
+                                $"[{Name}-v{Version}] Updated {repoName} to {repo.Commits.Count().ToString()}, BehindBy {repo.Head.TrackingDetails.BehindBy}");
+                            
+                            // This section was meant to log the different commit messages, but I haven't gotten it to work yet.
+                            #region Logging
+
+                            var trackingBranch = repo.Head.TrackedBranch; 
                             var log = repo.Commits.QueryBy(new CommitFilter
                             {
-                                IncludeReachableFrom = trackingBranch.Tip.Id, 
+                                IncludeReachableFrom = trackingBranch.Tip.Id,
                                 ExcludeReachableFrom = repo.Head.Tip.Id,
                             });
 
@@ -331,22 +375,10 @@ public class repoBuddy : BotPlugin
                             {
                                 Logging.Write(LogColor, $"[{Name}-v{Version}] {commit.Message}");
                             }
-                            
-                            // Credential information to fetch
-                            LibGit2Sharp.PullOptions options = new LibGit2Sharp.PullOptions();
-                            options.FetchOptions = new FetchOptions();
-                            options.FetchOptions.CredentialsProvider = new CredentialsHandler(
-                                (url, usernameFromUrl, types) =>
-                                    new UsernamePasswordCredentials()
-                                    {
-                                        Username = $"{Settings.Instance.UserName}",
-                                        Password = $"{Settings.Instance.GithubPat}"
-                                    });
-                            var signature = new LibGit2Sharp.Signature(
-                                new Identity("repoBuddy", "MERGE_USER_EMAIL"), DateTimeOffset.Now);
+
+                            #endregion
 
                             // Pull
-                            Logging.Write(LogColor, $"[{Name}-v{Version}] Updated {repoName} to {repo.Commits.Count().ToString()}, BehindBy {repo.Head.TrackingDetails.BehindBy}");
                             Commands.Pull(repo, signature, options);
                         }
                     }
@@ -362,7 +394,8 @@ public class repoBuddy : BotPlugin
                                 Username = $"{Settings.Instance.UserName}",
                                 Password = $"{Settings.Instance.GithubPat}"
                             });
-                    Logging.Write(LogColor, $"[{Name}-v{Version}] Attempting to clone {repoName} from {repoUrl} to {repoPath}");
+                    Logging.Write(LogColor,
+                        $"[{Name}-v{Version}] Attempting to clone {repoName} from {repoUrl} to {repoPath}");
                     Repository.Clone(repoUrl, repoPath, options);
                     totalLap = stopwatch.ElapsedMilliseconds - currentLap;
                     WriteLog(repoLog, $"[{Name}-v{Version}] {repoName} checkout complete in {totalLap} ms.");
