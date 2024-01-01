@@ -277,9 +277,9 @@ public class repoBuddy : BotPlugin
                 if (Directory.Exists($@"{repoPath}\.svn"))
                 {
                     // Delete directory so we can download a git version
-                    Directory.Delete($@"{repoPath}", true);
+                    DeleteDirectory($"{repoPath}");
                     // Create clean directory
-                    Directory.CreateDirectory($@"{repoPath}");
+                    Directory.CreateDirectory($"{repoPath}");
                 }
                 if (Directory.Exists($@"{repoPath}\.git"))
                 {
@@ -307,6 +307,7 @@ public class repoBuddy : BotPlugin
                 }
                 else
                 {
+                    Logging.WriteDiagnostic($"Attempting to clone {repoName} from {repoUrl} to {repoPath}");
                     Repository.Clone(repoUrl, repoPath);
                     totalLap = stopwatch.ElapsedMilliseconds - currentLap;
                     WriteLog(repoLog, $"[{Name}-v{Version}] {repoName} checkout complete in {totalLap} ms.");
@@ -414,4 +415,25 @@ public class repoBuddy : BotPlugin
     }
 
     #endregion
+    
+    public void DeleteDirectory(string targetDir)
+    {
+        File.SetAttributes(targetDir, FileAttributes.Normal);
+
+        string[] files = Directory.GetFiles(targetDir);
+        string[] dirs = Directory.GetDirectories(targetDir);
+
+        foreach (string file in files)
+        {
+            File.SetAttributes(file, FileAttributes.Normal);
+            File.Delete(file);
+        }
+
+        foreach (string dir in dirs)
+        {
+            DeleteDirectory(dir);
+        }
+
+        Directory.Delete(targetDir, false);
+    }
 }
