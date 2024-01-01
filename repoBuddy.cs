@@ -287,21 +287,39 @@ public class repoBuddy : BotPlugin
                 {
                     using (var repo = new Repository($@"{repoPath}\.git"))
                     {
-                        // Credential information to fetch
-                        LibGit2Sharp.PullOptions options = new LibGit2Sharp.PullOptions();
-                        options.FetchOptions = new FetchOptions();
-                        options.FetchOptions.CredentialsProvider = new CredentialsHandler(
-                            (url, usernameFromUrl, types) =>
-                                new UsernamePasswordCredentials()
-                                {
-                                    Username = $"{Settings.Instance.UserName}",
-                                    Password = $"{Settings.Instance.GithubPat}"
-                                });
-                        var signature = new LibGit2Sharp.Signature(
-                            new Identity("repoBuddy", "MERGE_USER_EMAIL"), DateTimeOffset.Now);
+                        if (repo.Head.TrackingDetails.BehindBy != null)
+                        {
+                            var trackingBranch = repo.Head.TrackedBranch;
+                            var log = repo.Commits.QueryBy(new CommitFilter
+                            {
+                                IncludeReachableFrom = trackingBranch.Tip.Id, ExcludeReachableFrom = repo.Head.Tip.Id
+                            });
 
-                        // Pull
-                        Commands.Pull(repo, signature, options);
+                            var count = log.Count(); //Counts the number of log entries
+
+                            //iterate the commits that represent the difference between your last 
+                            //push to the remote branch and latest commits
+                            foreach (var commit in log)
+                            {
+                                Logging.Write(LogColor, $"[{Name}-v{Version}] {commit.Message}");
+                            }
+                            
+                            // Credential information to fetch
+                            LibGit2Sharp.PullOptions options = new LibGit2Sharp.PullOptions();
+                            options.FetchOptions = new FetchOptions();
+                            options.FetchOptions.CredentialsProvider = new CredentialsHandler(
+                                (url, usernameFromUrl, types) =>
+                                    new UsernamePasswordCredentials()
+                                    {
+                                        Username = $"{Settings.Instance.UserName}",
+                                        Password = $"{Settings.Instance.GithubPat}"
+                                    });
+                            var signature = new LibGit2Sharp.Signature(
+                                new Identity("repoBuddy", "MERGE_USER_EMAIL"), DateTimeOffset.Now);
+
+                            // Pull
+                            Commands.Pull(repo, signature, options);
+                        }
                     }
                 }
                 else
@@ -315,7 +333,7 @@ public class repoBuddy : BotPlugin
                                 Username = $"{Settings.Instance.UserName}",
                                 Password = $"{Settings.Instance.GithubPat}"
                             });
-                    Logging.WriteDiagnostic($"Attempting to clone {repoName} from {repoUrl} to {repoPath}");
+                    Logging.Write(LogColor, $"[{Name}-v{Version}] Attempting to clone {repoName} from {repoUrl} to {repoPath}");
                     Repository.Clone(repoUrl, repoPath, options);
                     totalLap = stopwatch.ElapsedMilliseconds - currentLap;
                     WriteLog(repoLog, $"[{Name}-v{Version}] {repoName} checkout complete in {totalLap} ms.");
