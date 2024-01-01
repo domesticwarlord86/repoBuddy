@@ -19,6 +19,8 @@ internal static class Constants
     public static string WatchdogBatPath = Path.Combine(RepoBuddyDirectory, "watchdog.bat");
     public static string RepoLogJsonPath = Path.Combine(RepoBuddyDirectory, "repoLog.json");
     public static string SharpSvnDllPath = Path.Combine(RepoBuddyDirectory, "SharpSvn.dll");
+    public static string LibGit2SharpDllPath = Path.Combine(RepoBuddyDirectory, "LibGit2Sharp.dll");
+    public static string git2a2bde63DllPath = Path.Combine(RepoBuddyDirectory, "git2-a2bde63.dll");
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static DirectoryInfo GetSourceDirectory()

@@ -172,9 +172,34 @@ public class repoBuddy : BotPlugin
     static repoBuddy()
     {
         AppDomain.CurrentDomain.AppendPrivatePath(Constants.RepoBuddyDirectory);
-        /// AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomain_AssemblyResolve);
+        AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomain_AssemblyResolve);
         //  AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomainLibgit2sharp_AssemblyResolve);
         //  AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomaingit2a2bde63_AssemblyResolve);
+    }
+    
+    private static Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args) //force load sharpsvn
+    {
+        string path = Constants.LibGit2SharpDllPath;
+        string path2 = Constants.git2a2bde63DllPath;
+
+        try
+        {
+            Unblock(path);
+            Unblock(path2);
+        }
+        catch (Exception)
+        {
+            // pass
+        }
+
+        AssemblyName asmName = new AssemblyName(args.Name);
+
+        if (asmName.Name != "LibGit2Sharp")
+        {
+            return null;
+        }
+
+        return Assembly.LoadFrom(path);
     }
 
     [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
@@ -287,12 +312,15 @@ public class repoBuddy : BotPlugin
                 {
                     using (var repo = new Repository($@"{repoPath}\.git"))
                     {
-                        if (repo.Head.TrackingDetails.BehindBy != null)
+                        repo.RetrieveStatus();
+                        Logging.Write(LogColor, $"[{Name}-v{Version}] {repoName} Current: {repo.Commits.Count().ToString()} BehindBy {repo.Head.TrackingDetails.BehindBy}");
+                        if (repo.Head.TrackedBranch.TrackingDetails.BehindBy > 0)
                         {
                             var trackingBranch = repo.Head.TrackedBranch;
                             var log = repo.Commits.QueryBy(new CommitFilter
                             {
-                                IncludeReachableFrom = trackingBranch.Tip.Id, ExcludeReachableFrom = repo.Head.Tip.Id
+                                IncludeReachableFrom = trackingBranch.Tip.Id, 
+                                ExcludeReachableFrom = repo.Head.Tip.Id,
                             });
 
                             var count = log.Count(); //Counts the number of log entries
@@ -318,6 +346,7 @@ public class repoBuddy : BotPlugin
                                 new Identity("repoBuddy", "MERGE_USER_EMAIL"), DateTimeOffset.Now);
 
                             // Pull
+                            Logging.Write(LogColor, $"[{Name}-v{Version}] Updated {repoName} to {repo.Commits.Count().ToString()}, BehindBy {repo.Head.TrackingDetails.BehindBy}");
                             Commands.Pull(repo, signature, options);
                         }
                     }
@@ -476,7 +505,7 @@ public class repoBuddy : BotPlugin
             }
         }
 
-        public Settings() : base(Path.Combine(CharacterSettingsDirectory, "repoBuddy.json"))
+        public Settings() : base(Path.Combine(SettingsPath, "repoBuddy.json"))
         {
         }
 
